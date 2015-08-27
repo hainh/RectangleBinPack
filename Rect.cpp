@@ -48,4 +48,24 @@ bool IsContainedIn(const Rect &a, const Rect &b)
 		&& a.y+a.height <= b.y+b.height;
 }
 
+RectSize CombineRects(std::vector<Rect> rects)
+{
+	RectSize largeRect{ 0, 0 };
+
+	for (auto& rect : rects)
+	{
+		if (largeRect.width < rect.x + rect.width)
+		{
+			largeRect.width = rect.x + rect.width;
+		}
+
+		if (largeRect.height < rect.y + rect.height)
+		{
+			largeRect.height = rect.y + rect.height;
+		}
+	}
+
+	return largeRect;
+}
+
 }

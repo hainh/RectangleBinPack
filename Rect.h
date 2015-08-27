@@ -16,6 +16,17 @@
 #define debug_assert(x)
 #endif
 
+#ifndef min
+inline int min(int a, int b)
+{
+	return ((a) < (b) ? (a) : (b));
+}
+inline int max(int a, int b)
+{
+	return  ((a) > (b) ? (a) : (b));
+}
+#endif
+
 //using namespace std;
 
 namespace rbp {
@@ -24,6 +35,21 @@ struct RectSize
 {
 	int width;
 	int height;
+	bool allowFlip;
+
+	RectSize()
+		: RectSize(0, 0, true)
+	{ }
+
+	RectSize(int x, int y)
+		: RectSize(x, y, true)
+	{ }
+
+	RectSize(int w, int h, bool f)
+		: width(w)
+		, height(h)
+		, allowFlip(f)
+	{ }
 };
 
 struct Rect
@@ -32,7 +58,26 @@ struct Rect
 	int y;
 	int width;
 	int height;
+	bool flipped;
+
+	Rect(int x, int y, int w, int h, bool f)
+		: x(x)
+		, y(y)
+		, width(w)
+		, height(h)
+		, flipped(f)
+	{ }
+
+	Rect(int x, int y, int w, int h)
+		: Rect(x, y, w, h, false)
+	{ }
+
+	Rect()
+		: Rect(0, 0, 0, 0, false)
+	{ }
 };
+
+RectSize CombineRects(std::vector<Rect> rects);
 
 /// Performs a lexicographic compare on (rect short side, rect long side).
 /// @return -1 if the smaller side of a is shorter than the smaller side of b, 1 if the other way around.

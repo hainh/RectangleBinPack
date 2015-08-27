@@ -16,6 +16,7 @@
 #include <cstring>
 
 #include "ShelfNextFitBinPack.h"
+#include "Rect.h"
 
 namespace rbp {
 

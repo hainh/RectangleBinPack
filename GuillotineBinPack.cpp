@@ -83,7 +83,7 @@ void GuillotineBinPack::Insert(std::vector<RectSize> &rects, bool merge,
 					break;
 				}
 				// If flipping this rectangle is a perfect match, pick that then.
-				else if (rects[j].height == freeRectangles[i].width && rects[j].width == freeRectangles[i].height)
+				else if (rects[j].allowFlip && rects[j].height == freeRectangles[i].width && rects[j].width == freeRectangles[i].height)
 				{
 					bestFreeRect = i;
 					bestRect = j;
@@ -105,7 +105,7 @@ void GuillotineBinPack::Insert(std::vector<RectSize> &rects, bool merge,
 					}
 				}
 				// If not, then perhaps flipping sideways will make it fit?
-				else if (rects[j].height <= freeRectangles[i].width && rects[j].width <= freeRectangles[i].height)
+				else if (rects[j].allowFlip && rects[j].height <= freeRectangles[i].width && rects[j].width <= freeRectangles[i].height)
 				{
 					int score = ScoreByHeuristic(rects[j].height, rects[j].width, freeRectangles[i], rectChoice);
 					if (score < bestScore)
@@ -132,6 +132,8 @@ void GuillotineBinPack::Insert(std::vector<RectSize> &rects, bool merge,
 
 		if (bestFlipped)
 			std::swap(newNode.width, newNode.height);
+
+		newNode.flipped = bestFlipped;
 
 		// Remove the free space we lost in the bin.
 		SplitFreeRectByHeuristic(freeRectangles[bestFreeRect], newNode, splitMethod);
