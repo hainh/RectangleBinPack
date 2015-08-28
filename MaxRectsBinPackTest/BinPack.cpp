@@ -15,6 +15,24 @@
 #define __out__
 #define __inout__
 
+#define BENCH_MARKS_ENABLED 1
+
+#if BENCH_MARKS_ENABLED
+#define BEN_DECL_TOTAL_TIME long long talTime = 0
+#define BEN_START milliseconds before = duration_cast< milliseconds >(system_clock::now().time_since_epoch())
+#define BEN_END milliseconds after = duration_cast< milliseconds >(system_clock::now().time_since_epoch())
+#define BEN_ADD_TOTAL talTime += (after - before).count()
+#define BEN_DURATION ((int)(after - before).count())
+#define BEN_TOTAL ((int)talTime)
+#else
+#define BEN_DECL_TOTAL_TIME
+#define BEN_START
+#define BEN_END
+#define BEN_ADD_TOTAL
+#define BEN_DURATION -1
+#define BEN_TOTAL -1
+#endif
+
 typedef bool(*PackRect)(std::vector<rbp::RectSize> rects, std::vector<rbp::Rect> &dst, rbp::RectSize rectSize);
 
 std::vector<rbp::RectSize> randomRect(rbp::RectSize canvasSize)
@@ -25,11 +43,11 @@ std::vector<rbp::RectSize> randomRect(rbp::RectSize canvasSize)
 	static bool randomized = false;
 	if (!randomized)
 	{
-		srand(time(nullptr));
+		srand(time(nullptr)/*2837646*/);
 		randomized = true;
 	}
 
-	int thresshole = (canvasSize.width + canvasSize.height) / 9;
+	int thresshole = (canvasSize.width + canvasSize.height) / 6;
 	vector<RectSize> freeRects;
 	vector<RectSize> splittedRects;
 	freeRects.push_back(canvasSize);
@@ -194,6 +212,7 @@ bool packFunc(std::vector<rbp::RectSize> rects, std::vector<rbp::Rect> &dst, rbp
 	return true;
 }
 
+int packCalls = 0;
 std::vector<rbp::Rect> BinPackingFixWidth(int minH, std::vector<rbp::RectSize> &rects, PackRect packFunc,
 	rbp::RectSize &rectSize, bool enlagreIfNotFit = true)
 {
@@ -201,6 +220,7 @@ std::vector<rbp::Rect> BinPackingFixWidth(int minH, std::vector<rbp::RectSize> &
 	auto size = rbp::RectSize(rectSize.width, (minH + rectSize.height + 1) / 2);
 	std::vector<rbp::Rect> binRects;
 	bool fit = packFunc(rects, binRects, size);
+	++packCalls;
 	if (fit)
 	{
 		if (minH + 1 == rectSize.height || minH + 2 == rectSize.height) // Terminate recursive condition met
@@ -238,12 +258,9 @@ std::vector<rbp::Rect> BinPackingFixHeight(int minW, std::vector<rbp::RectSize> 
 	rbp::RectSize &rectSize, bool enlagreIfNotFit = true)
 {
 	auto size = rbp::RectSize((minW + rectSize.width + 1) / 2, rectSize.height);
-	if (size.height == 1)
-	{
-		return std::vector<rbp::Rect>();
-	}
 	std::vector<rbp::Rect> binRects;
 	bool fit = packFunc(rects, binRects, size);
+	++packCalls;
 	if (fit)
 	{
 		if (minW + 1 == rectSize.width || minW + 2 == rectSize.width)
@@ -266,7 +283,7 @@ std::vector<rbp::Rect> BinPackingFixHeight(int minW, std::vector<rbp::RectSize> 
 		if (minW + 1 == rectSize.width || minW + 2 == rectSize.width)
 		{
 			rectSize.width += rectSize.width / 40;
-			return enlagreIfNotFit ? BinPackingFixHeight(minW, rects, packFunc, rectSize, enlagreIfNotFit) : binRects;
+			return enlagreIfNotFit ? BinPackingFixHeight(minW + 1, rects, packFunc, rectSize, enlagreIfNotFit) : binRects;
 		}
 		else
 		{
@@ -283,15 +300,18 @@ std::vector<rbp::Rect> BinPackingFixHeight(int minW, std::vector<rbp::RectSize> 
 
  @param rectSize (old algorithm) start size that will be grown in each step
 */
+#define NEW_ALGORITHM 1
 std::vector<rbp::Rect> BinPacking(std::vector<rbp::RectSize> rects, PackRect packFunc,
 	__inout__ rbp::RectSize &rectSize, __out__ float &occupy)
 {
+#if NEW_ALGORITHM
 	float area = 0;
 	for (auto& r : rects)
 	{
 		area += r.width * r.height;
 	}
 
+	packCalls = 0;
 	int minH = (int)(area) / rectSize.width;
 	rbp::RectSize sizeFixW = rectSize;
 	auto binFixWidth = BinPackingFixWidth(minH, rects, packFunc, sizeFixW);
@@ -327,108 +347,109 @@ std::vector<rbp::Rect> BinPacking(std::vector<rbp::RectSize> rects, PackRect pac
 	rectSize.width = sizeFixH.width;
 	rectSize.height = sizeFixH.height;
 	return binFixHeight;
+#else
 	//===============================
 	// Old algor
 
-	//int dw = rectSize.width / 40;
-	//int dh = rectSize.height / 40;
-	//float area = 0;
-	//for (auto& r : rects)
-	//{
-	//	area += r.width * r.height;
-	//}
-	//std::vector<rbp::Rect> result;
-	//float bestOccupy = 0;
-	//rbp::RectSize bestSize;
-	//int calls = 0;
-	//int bestFoundBy = 0;
-	//auto rsw = rectSize;
-	//for (int i = 0; i < 20; ++i)
-	//{
-	//	std::vector<rbp::Rect> dst;
-	//	++calls;
-	//	if (packFunc(rects, dst, rbp::RectSize(rsw.width + i * dw, rsw.height)))
-	//	{
-	//		rsw.width = rectSize.width + i * dw;
-	//		result = dst;
-	//		bestSize = rsw;
-	//		bestOccupy = area / (rsw.width * rsw.height);
-	//		break;
-	//	}
-	//}
+	int dw = rectSize.width / 40;
+	int dh = rectSize.height / 40;
+	float area = 0;
+	for (auto& r : rects)
+	{
+		area += r.width * r.height;
+	}
+	std::vector<rbp::Rect> result;
+	float bestOccupy = 0;
+	rbp::RectSize bestSize;
+	int calls = 0;
+	int bestFoundBy = 0;
+	auto rsw = rectSize;
+	for (int i = 0; i < 20; ++i)
+	{
+		std::vector<rbp::Rect> dst;
+		++calls;
+		if (packFunc(rects, dst, rbp::RectSize(rsw.width + i * dw, rsw.height)))
+		{
+			rsw.width = rectSize.width + i * dw;
+			result = dst;
+			bestSize = rsw;
+			bestOccupy = area / (rsw.width * rsw.height);
+			break;
+		}
+	}
 
-	//int lowerWidth = rsw.width - dw;
-	//for (int width = rsw.width - 1; width > lowerWidth; --width)
-	//{
-	//	std::vector<rbp::Rect> dst;
-	//	++calls;
-	//	if (packFunc(rects, dst, rbp::RectSize(width, rsw.height)))
-	//	{
-	//		rsw.width = width;
-	//		result = dst;
-	//		bestSize = rsw;
-	//		bestOccupy = area / (rsw.width * rsw.height);
-	//		bestFoundBy = 1;
-	//	}
-	//	else
-	//	{
-	//		break;
-	//	}
-	//}
+	int lowerWidth = rsw.width - dw;
+	for (int width = rsw.width - 1; width > lowerWidth; --width)
+	{
+		std::vector<rbp::Rect> dst;
+		++calls;
+		if (packFunc(rects, dst, rbp::RectSize(width, rsw.height)))
+		{
+			rsw.width = width;
+			result = dst;
+			bestSize = rsw;
+			bestOccupy = area / (rsw.width * rsw.height);
+			bestFoundBy = 1;
+		}
+		else
+		{
+			break;
+		}
+	}
 
-	//auto rsh = rectSize;
-	//for (int i = 0; i < 20; ++i)
-	//{
-	//	std::vector<rbp::Rect> dst;
-	//	++calls;
-	//	if (packFunc(rects, dst, rbp::RectSize(rectSize.width + i * dh, rectSize.height)))
-	//	{
-	//		rsh.height = rectSize.height + i * dh;
-	//		occupy = area / (rsh.width * rsh.height);
-	//		if (occupy > bestOccupy)
-	//		{
-	//			result = dst;
-	//			bestSize = rsh;
-	//			bestOccupy = occupy;
-	//			bestFoundBy = 2;
-	//		}
-	//		break;
-	//	}
-	//}
+	auto rsh = rectSize;
+	for (int i = 0; i < 20; ++i)
+	{
+		std::vector<rbp::Rect> dst;
+		++calls;
+		if (packFunc(rects, dst, rbp::RectSize(rectSize.width + i * dh, rectSize.height)))
+		{
+			rsh.height = rectSize.height + i * dh;
+			occupy = area / (rsh.width * rsh.height);
+			if (occupy > bestOccupy)
+			{
+				result = dst;
+				bestSize = rsh;
+				bestOccupy = occupy;
+				bestFoundBy = 2;
+			}
+			break;
+		}
+	}
 
-	//int lowerHeight = rsh.height - dh;
-	//for (int height = rsh.height - 1; height > lowerHeight; --height)
-	//{
-	//	std::vector<rbp::Rect> dst;
-	//	++calls;
-	//	if (packFunc(rects, dst, rbp::RectSize(rsh.width, height)))
-	//	{
-	//		rsh.height = height;
-	//		occupy = area / (rsh.width * rsh.height);
-	//		if (occupy > bestOccupy)
-	//		{
-	//			result = dst;
-	//			bestSize = rsh;
-	//			bestOccupy = occupy;
-	//			bestFoundBy = 3;
-	//		}
-	//	}
-	//	else
-	//	{
-	//		break;
-	//	}
-	//}
-	//printf("= %d Calls, best found by\t\t%d\n", calls, bestFoundBy);
-	//occupy = bestOccupy;
-	//rectSize.width = bestSize.width;
-	//rectSize.height = bestSize.height;
-	//return result;
+	int lowerHeight = rsh.height - dh;
+	for (int height = rsh.height - 1; height > lowerHeight; --height)
+	{
+		std::vector<rbp::Rect> dst;
+		++calls;
+		if (packFunc(rects, dst, rbp::RectSize(rsh.width, height)))
+		{
+			rsh.height = height;
+			occupy = area / (rsh.width * rsh.height);
+			if (occupy > bestOccupy)
+			{
+				result = dst;
+				bestSize = rsh;
+				bestOccupy = occupy;
+				bestFoundBy = 3;
+			}
+		}
+		else
+		{
+			break;
+		}
+	}
+	printf("= %d Calls, best found by\t\t%d\n", calls, bestFoundBy);
+	occupy = bestOccupy;
+	rectSize.width = bestSize.width;
+	rectSize.height = bestSize.height;
+	return result;
+#endif
 }
 
 std::vector<rbp::Rect> PackMultiAlgo(std::vector<rbp::RectSize> &rects, __inout__ rbp::RectSize &rectSize)
 {
 	using namespace rbp;
-	printf("Here's a benchmark for _ %u _ Rects\n", rects.size());
 
 	PackRect packFuncs[] = {
 		MaxRectBestAreaFit, 
@@ -470,16 +491,17 @@ std::vector<rbp::Rect> PackMultiAlgo(std::vector<rbp::RectSize> &rects, __inout_
 	float maxOccupy = 0;
 	std::vector<rbp::Rect> binRects;
 	rbp::RectSize minBinSize;
+	BEN_DECL_TOTAL_TIME;
 	for (int i = 0; i < sizeof(packFuncs) / sizeof(PackRect); ++i)
 	{
 		rbp::RectSize optSize = rectSize;
 		float occupy = 0;
 
-		milliseconds before = duration_cast< milliseconds >(system_clock::now().time_since_epoch());
+		BEN_START;
 		auto bin = BinPacking(rects, packFuncs[i], optSize, occupy);
-		milliseconds after = duration_cast< milliseconds >(system_clock::now().time_since_epoch());
-
-		printf("\t%d millis, %f, %s\n", (int)(after - before).count(), occupy, algNames[i]);
+		BEN_END;
+		BEN_ADD_TOTAL;
+		//printf("\t%d millis, %d, %f, %s\n", BEN_DURATION, packCalls, occupy, algNames[i]);
 
 		if (occupy > maxOccupy)
 		{
@@ -491,7 +513,7 @@ std::vector<rbp::Rect> PackMultiAlgo(std::vector<rbp::RectSize> &rects, __inout_
 
 	rectSize.width = minBinSize.width;
 	rectSize.height = minBinSize.height;
-	printf("Best %f, (%d; %d)\n", maxOccupy, rectSize.width, rectSize.height);
+	printf("Best %f, (%d; %d), %d millis\n", maxOccupy, rectSize.width, rectSize.height, BEN_TOTAL);
 	//for (auto& rr : binRects)
 	//{
 	//	printf("{x: %d, y: %d, w: %d, h: %d, flipped: %d},\n", rr.x, rr.y, rr.width, rr.height, rr.flipped ? 1 : 0);
@@ -520,6 +542,41 @@ void saveImgs(unsigned int w, unsigned int h)
 	image.save_image(filename);
 }
 
+void autoTest()
+{
+	using namespace rbp;
+	auto rectSize = RectSize{ 600, 600, false };
+	auto rects = randomRect(rectSize);
+
+	//rects.pop_back();
+	//rects.pop_back();
+	//rects.pop_back();
+
+	rects[0].allowFlip = false;
+
+	printf("===============================================\n"
+		"Here's a benchmark for _ %u _ Rects\n", rects.size());
+
+	//printf("Data: ");
+	//for (auto& r : rects)
+	//{
+	//	printf("%d %d ", r.width, r.height);
+	//}
+	//printf("\n");
+
+	PackMultiAlgo(rects, RectSize(1024, 512));
+	for (auto& r : rects)
+	{
+		r.allowFlip = true;
+	}
+	//printf("____ Allow Flip\n");
+	auto bin = PackMultiAlgo(rects, RectSize(1024, 512));
+	for (auto& r : bin)
+	{
+		printf("{x: %d, y: %d, w: %d, h: %d, flipped: %d},\n", r.x, r.y, r.width, r.height, r.flipped);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	using namespace rbp;
@@ -533,31 +590,12 @@ int main(int argc, char **argv)
 
 		system("cls");
 
-		auto rectSize = RectSize{ 600, 600, false };
-		auto rects = randomRect(rectSize);
-
-		rects[0].allowFlip = false;
-		rects[1].allowFlip = false;
-		rects[2].allowFlip = false;
-		rects[3].allowFlip = false;
-
-		printf("Data: ");
-		for (auto& r : rects)
+		for (int i = 0; i < 5; i++)
 		{
-			printf("%d %d ", r.width, r.height);
+			autoTest();
 		}
-		printf("\n");
 
-		PackMultiAlgo(rects, RectSize(rectSize.width + 50, rectSize.height + 50));
-		for (auto& r : rects)
-		{
-			r.allowFlip = true;
-		}
-		printf("============ Allow Flip ===========\n");
-		PackMultiAlgo(rects, RectSize(rectSize.width + 50, rectSize.height + 50));
-
-		printf("Press any key to continue...");
-		getchar();
+		system("pause");
 		return 0;
 	}
 	
